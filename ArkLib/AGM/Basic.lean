@@ -8,6 +8,7 @@ import VCVio
 import Mathlib.RingTheory.Polynomial.Basic
 import Mathlib.Algebra.Polynomial.FieldDivision
 import Mathlib.LinearAlgebra.BilinearForm.Properties
+import Mathlib.GroupTheory.SpecificGroups.Cyclic
 
 /-! # The Algebraic Group Model (With Oblivious Sampling)
 
@@ -19,20 +20,47 @@ class IsPrimeOrderWith (G : Type*) [Group G] (p : ℕ) [Fact (Nat.Prime p)] wher
   hCard : Nat.card G = p
 
 class IsPrimeOrder (G : Type*) [Group G] where
-  -- hCard : ∃p, IsPrimeOrderWith G p
-  hCard : ∃ p, Nat.Prime p ∧ Nat.card G = p
+  -- hCard : ∃p, Nat.Prime p ∧ IsPrimeOrderWith G p
+  hCard : ∃ p, Fact (Nat.Prime p) ∧ Nat.card G = p
 
-namespace IsPrimeOrder
+section primeGp
 
-variable {G : Type*} [Group G] {p : ℕ} [hp : Fact (Nat.Prime p)] [IsPrimeOrder G]
+variable {p : Nat} [hp : Fact (Nat.Prime p)]
 
-instance : CommGroup G := sorry
+variable {G : Type*} [hcg : CommGroup G] [hpG : IsPrimeOrder G]
 
--- instance : IsCyclic G := isCyclic_of_prime_card PrimeOrder.hCard
+instance primeOrderIsCyclic : IsCyclic G where
+  exists_zpow_surjective := by {
+    rcases hpG.hCard with ⟨P, hP⟩
+    have hpg : Nat.card G = P := by {
+      exact hP.2
+    }
+    have hPP : Fact (Nat.Prime P) := by {
+      exact hP.1
+    }
+    apply (isCyclic_of_prime_card hpg).exists_zpow_surjective
+  }
+
+
+instance primeOrderIsCommutative : CommGroup G where 
+  mul_comm := by {
+    intro a b
+    rcases exists_zpow_surjective G with ⟨g, hf⟩
+    have ha : ∃ x : ℤ, g^x = a := by {
+      apply hf
+    }
+    have hb : ∃ y : ℤ, g^y = b := by {
+      apply hf
+    }
+    rcases ha with ⟨X, hX⟩
+    rcases hb with ⟨Y, hY⟩
+    rw [←hX, ←hY]
+    group
+  }
+
+end primeGp
 
 -- instance : Additive G ≃+ ZMod p := sorry
-
-end IsPrimeOrder
 
 open Polynomial
 
@@ -156,6 +184,8 @@ theorem commit_eq {g : G₁} {a : ZMod p} (poly : degreeLT (ZMod p) (n + 1)) :
   simp_rw [← pow_mul, Finset.prod_pow_eq_pow_sum]
   rw [eval_eq_sum_degreeLTEquiv poly.property]
   simp
+  simp_rw
+  
   -- simp_rw [← ZMod.val_pow]
   sorry
 
