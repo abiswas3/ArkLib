@@ -211,31 +211,82 @@ theorem commit_eq {g : G₁} {a : ZMod p} (poly : degreeLT (ZMod p) (n + 1)) :
     intro x
     group
 
+-- if this is already in mathlib4 somewhere, I couldn't find it. for
+-- an exercise I did it by hand, albeit in a haphazard way
+
+instance Field (p : ℕ) [hp : Fact (Nat.Prime p)]: Field (ZMod p) where
+  inv := fun n => if n = 0 then 0 else ZMod.inv p n
+  inv_zero := by simp
+  nnqsmul := _ --fun q n => q.num*n * (q.den : (ZMod p))⁻¹
+  qsmul := _ --fun q n => q.num*n * (q.den : (ZMod p))⁻¹
+  mul_inv_cancel := by
+    intro a ha
+    simp [ha]
+    have hcoprime : ((a.val).Coprime p) := by
+      unfold Nat.Coprime
+      have hap1 : a.val.gcd p ∣ p := by 
+        exact (Nat.gcd_dvd a.val p).2
+      rw [Nat.dvd_prime hp.out] at hap1
+      rcases hap1 with gcd1|gcdp
+      · exact gcd1
+      · have hap2 : a.val.gcd p ∣ a.val := by 
+          exact (Nat.gcd_dvd a.val p).1
+        rw [gcdp] at hap2
+        have hap3 : a.val < p := by exact ZMod.val_lt a
+        have hap4 : a.val = 0 := by exact Nat.eq_zero_of_dvd_of_lt hap2 hap3
+        have hap5 : a = 0 := by exact (ZMod.val_eq_zero a).mp hap4
+        contradiction  
+    rw [←ZMod.coe_mul_inv_eq_one a.val hcoprime]
+    congr
+    · simp
+    · simp
+
+theorem sub_degree_le {R : Type} [CommRing R] (p q : Polynomial R) : (p - q).degree ≤ max p.degree q.degree := by exact degree_sub_le p q
+
+theorem degreeLT_is_degree_lt {R : Type} [CommRing R] {n : Nat} (f : degreeLT R n) : f.val.degree < n := by apply?
+
+-- this is in the middle of working; very sloppy currently
+
 /-- To generate an opening proving that a polynomial `poly` has a certain evaluation at `z`,
   we return the commitment to the polynomial `q(X) = (poly(X) - poly.eval z) / (X - z)` -/
 noncomputable def generateOpening [Fact (Nat.Prime p)] (srs : Vector G₁ (n + 1))
-    (coeffs : Fin (n + 1) → ZMod p) (z : ZMod p) : G₁ :=
+    (coeffs : Fin (n + 1) → ZMod p) (hc : ∃ x : Fin (n+1), coeffs x ≠ 0) (z : ZMod p) : G₁ :=
   letI poly : degreeLT (ZMod p) (n + 1) := (degreeLTEquiv (ZMod p) (n + 1)).invFun coeffs
-  
-  letI q_poly_e : ∃ (k : (ZMod p)[X]), (X - C z)*k = (poly.val - C (poly.val.eval z)) := by {
-    sorry
-  }
-
-   q_poly_e
-
   letI q_poly : (X - C z) ∣ (poly.val - C (poly.val.eval z)) := by exact X_sub_C_dvd_sub_C_eval
-
-  letI Q : (ZMod p)[X] := match (X_sub_C_dvd_sub_C_eval z poly) with
-  | a => sorry
-  
-
-  -- Dvd.dvd (X - C z) (poly.val - C (poly.val.eval z)) : Exists).dvd
-
+  --have hcc : poly != 0 := by sorry
   letI q : degreeLT (ZMod p) (n + 1) :=
-    ⟨(poly.val - C (poly.val.eval z)) / (X - C z), by
+    ⟨Polynomial.div (poly.val - C (poly.val.eval z)) (X - C z), by
       apply mem_degreeLT.mpr
-      have : Field (ZMod p) := by apply?
-      sorry⟩
+      have hPoly : (Polynomial.div (poly.val - C (poly.val.eval z)) (X - C z)).degree 
+        ≤ (poly.val - C (poly.val.eval z)).degree := by {
+        apply Polynomial.degree_div_le (poly.val - C (poly.val.eval z)) (X - C z)
+        --apply Polynomial.degree_div_le hcc (by simp)
+      }
+
+      have hPoly3 : (poly.val - C (poly.val.eval z)).degree ≤ max poly.val.degree (C (poly.val.eval z)).degree := by {
+        apply degree_sub_le poly.val (C (poly.val.eval z))
+      }
+      have hd1 : poly.val.degree <  WithBot.some (n+1) := by 
+        sorry
+        --rw [←Polynomial.mem_degreeLT]
+        
+        
+      have hPoly2 : (poly.val - C (poly.val.eval z)).degree < n+1 := by {
+        
+        #check poly.val
+        #check (poly.val - C (poly.val.eval z)).degree
+        
+        sorry
+        --apply?
+      }
+      
+      have h3 : WithBot.some (n+1) = (WithBot.some n)+1 := by simp
+      
+      simp [h3]
+      exact lt_of_le_of_lt hPoly hPoly2
+      ⟩
+
+      --Polynomial.degree_div_le hcc (by simp)
       -- Don't know why `degree_div_le` time out here
       -- refine lt_of_le_of_lt (degree_div_le _ (X - C z)) ?_
       -- refine lt_of_le_of_lt (degree_sub_le _ _) (sup_lt_iff.mpr ?_)
